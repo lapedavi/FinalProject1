@@ -6,72 +6,75 @@ class Logic(Gui):
     FILE_NAME = 'data.csv'
 
     def __init__(self, window) -> None:
+        """Loads votes from data file or creates file if it does not exist and binds button functions"""
         super().__init__(window)
 
         self.__john_votes = 0
         self.__jane_votes = 0
 
-        self.exit_button.config(command=self.select_exit)
-        self.vote_button.config(command=self.open_candidate_menu)
-        self.cast_button.config(command=self.cast_vote)
-        self.load_button.config(command=self.load_votes)
-        self.save_button.config(command=self.save_votes)
+        if os.path.isfile(Logic.FILE_NAME):
+            data_file = open(Logic.FILE_NAME,'r')
+            for line in data_file:
+                split_data = line.split(',')
+                if split_data[1] == '1\n':
+                    self.__john_votes += 1
+                else:
+                    self.__jane_votes += 1
+        else:
+            data_file = open(Logic.FILE_NAME, 'w')
 
+        data_file.close()
 
-    def select_exit(self) -> None:
-        """Closes both vote and main screens and displays votes per candidate and total votes"""
-        self.vote_frame.pack_forget()
+        self.vote_button.config(command=self.cast_vote)
+        self.view_button.config(command=self.select_view)
+
+    def select_view(self) -> None:
+        """Close main frame and loads results frame"""
         self.main_frame.pack_forget()
         self.result_label.config(text=f'John - {self.__john_votes}, Jane - {self.__jane_votes}, Total - {self.__john_votes + self.__jane_votes}')
         self.result_frame.pack()
 
     def cast_vote(self) -> None:
-        """Add vote to selected candidate, if vote was not provided return an error message.
-         If vote is successful return to menu"""
+        """Check the id is a valid 6-digit number and if they have previously voted,
+        if not save their valid vote to data file"""
+
+        entered_id = self.id_entry.get().strip()
+
+        if entered_id.isalpha() or len(entered_id) != 6:
+            self.set_error_response('Please enter valid 6 digit numerical Id')
+            return
+
+        data_file = open(Logic.FILE_NAME, 'r')
+
+        for line in data_file:
+            split_line = line.split(',')
+            if split_line[0] == entered_id:
+                self.set_error_response('Already Voted')
+                return
+        data_file.close()
+
         status = self.radio_answer.get()
         if status == 1:
             self.__john_votes += 1
-            self.vote_result_label.config(text='Voted John')
+            self.set_success_response('Voted John')
         elif status == 2:
             self.__jane_votes += 1
-            self.vote_result_label.config(text='Voted Jane')
+            self.set_success_response('Voted Jane')
         else:
-            self.error_label.config(text='Please select the candidate to vote for')
+            self.set_error_response('Please select the candidate to vote for')
             return
 
+        data_file = open(Logic.FILE_NAME, 'a')
+        data_file.write(f'{entered_id},{status}\n')
+        data_file.close()
+
+        self.id_entry.delete(0, END)
         self.radio_answer.set(0)
-        self.open_main_menu()
 
-    def open_candidate_menu(self) -> None:
-        """Closes main menu and opens vote form"""
-        self.main_frame.pack_forget()
-        self.vote_frame.pack()
+    def set_error_response(self, error:str) -> None:
+        """Set error label to red error"""
+        self.error_label.config(text=error, fg='red')
 
-    def open_main_menu(self) -> None:
-        """Closes vote form and opens main menu"""
-        self.vote_frame.pack_forget()
-        self.main_frame.pack()
-
-    def load_votes(self) -> None:
-        """Read data file to load the previously saved votes. If data file does not exist show an error"""
-        if os.path.isfile(Logic.FILE_NAME):
-            data_file = open(Logic.FILE_NAME,'r')
-        else:
-            self.vote_result_label.config(text='File does not exist')
-            return
-
-        line_data = data_file.readline()
-        data_file.close()
-
-        split_data = line_data.split(',')
-        self.__john_votes = int(split_data[0])
-        self.__jane_votes = int(split_data[1])
-        self.vote_result_label.config(text='Read data successfully')
-
-    def save_votes(self) -> None:
-        """Write current vote counts to data file"""
-        data_file = open(Logic.FILE_NAME,'w')
-        data_file.write(f'{self.__john_votes},{self.__jane_votes}')
-        data_file.close()
-        self.save_button.pack_forget()
-        self.result_label.config(text=f'Votes saved successfully')
+    def set_success_response(self, response:str) -> None:
+        """Set error label to green response"""
+        self.error_label.config(text=response, fg='green')
